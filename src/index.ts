@@ -1,5 +1,4 @@
 import * as k8s from "@kubernetes/client-node";
-import { logger } from "./logger.ts";
 import { generateCustomResourceDefination } from "./lib/crd.ts";
 import z from "zod/v4";
 

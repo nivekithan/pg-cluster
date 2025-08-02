@@ -1,7 +1,6 @@
 import { logger } from "../logger.ts";
 import { convertSync } from "@openapi-contrib/json-schema-to-openapi-schema";
 import { z } from "zod/v4";
-import type * as k8s from "@kubernetes/client-node";
 
 export function generateCustomResourceDefination<T extends z.ZodObject>({
   group,
@@ -18,7 +17,7 @@ export function generateCustomResourceDefination<T extends z.ZodObject>({
   };
   scope: "Namespaced" | "Cluster";
   schema: T;
-}): k8s.V1CustomResourceDefinition {
+}) {
   const jsonSchema = z.toJSONSchema(schema, { target: "draft-4" });
 
   logger.debug({ type: "jsonSchema", jsonSchema });
