@@ -1,0 +1,3 @@
+patchedDependencies:
+  '@openapi-contrib/json-schema-to-openapi-schema': patches/@openapi-contrib__json-schema-to-openapi-schema.patch
+  json-schema-walker: patches/json-schema-walker.patch

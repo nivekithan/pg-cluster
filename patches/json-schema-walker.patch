@@ -1,0 +1,36 @@
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 56762500a2903d03ed87f883f0055869da03e31c..c8b64eca5ac28c338f2e76111ba8987b4e6f3eff 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -15,6 +15,8 @@ export declare class Walker<T extends InputSchema = InputSchema> {
+     walker: ProcessorFunction<T>;
+     constructor();
+     loadSchema: (schema: T, options?: Options) => Promise<void>;
++    loadSchemaSync: (schema: T, options?: { cloneSchema?: boolean }) => void;
++    walkSync: (processor: ProcessorFunction<T>, vocabulary: IVocabulary) => void;
+     walk: (processor: ProcessorFunction<T>, vocabulary: IVocabulary) => Promise<void>;
+     private cleanupVisited;
+     private isValidSubSchema;
+diff --git a/dist/index.js b/dist/index.js
+index 4b0920800885d973bc96cffb921cad62f005afac..992669c14296f5651563807a4596acb79903ebf2 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -50,6 +50,18 @@ class Walker {
+                 this.rootSchema = (await parser.dereference(handleRootReference(schema), dereferenceOptions || {}));
+             }
+         };
++        this.loadSchemaSync = (schema, options) => {
++            const { cloneSchema = true} = options || {};
++            this.rootSchema = cloneSchema ? (0, clone_1.default)(schema) : schema;
++        }
++        this.walkSync = (processor, vocabulary) => {
++            this.vocabulary = vocabulary ?? this.vocabularies.DRAFT_07;
++            this.walker = processor;
++            this.walker(this.rootSchema);
++            this.subschemaWalk(this.rootSchema);
++            // clean up the symbols we injected to check for circular references
++            this.cleanupVisited(this.rootSchema);
++        }
+         this.walk = async (processor, vocabulary) => {
+             this.vocabulary = vocabulary ?? this.vocabularies.DRAFT_07;
+             this.walker = processor;

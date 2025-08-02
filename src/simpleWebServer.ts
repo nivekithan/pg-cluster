@@ -1,7 +1,7 @@
 import z from "zod/v4";
 import { generateCustomResourceDefination } from "./lib/crd";
 
-export const SimepleWebServerCrd = generateCustomResourceDefination({
+export const SimpleWebServerCrd = await generateCustomResourceDefination({
   group: "nivekithan.com",
   name: {
     kind: "WebServer",

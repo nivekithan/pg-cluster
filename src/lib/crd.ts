@@ -1,9 +1,9 @@
 import { logger } from "../logger.ts";
-import { convert } from "@openapi-contrib/json-schema-to-openapi-schema";
+import { convertSync } from "@openapi-contrib/json-schema-to-openapi-schema";
 import { z } from "zod/v4";
 import type * as k8s from "@kubernetes/client-node";
 
-export async function generateCustomResourceDefination<T extends z.ZodObject>({
+export function generateCustomResourceDefination<T extends z.ZodObject>({
   group,
   name,
   scope,
@@ -18,12 +18,12 @@ export async function generateCustomResourceDefination<T extends z.ZodObject>({
   };
   scope: "Namespaced" | "Cluster";
   schema: T;
-}): Promise<k8s.V1CustomResourceDefinition> {
+}): k8s.V1CustomResourceDefinition {
   const jsonSchema = z.toJSONSchema(schema, { target: "draft-4" });
 
   logger.debug({ type: "jsonSchema", jsonSchema });
 
-  const openApiSchema = await convert(jsonSchema, { dereference: false });
+  const openApiSchema = convertSync(jsonSchema, { dereference: false });
 
   logger.debug({ type: "openApiSchema", openApiSchema });
 
