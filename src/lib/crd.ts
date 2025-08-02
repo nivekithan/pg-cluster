@@ -18,13 +18,21 @@ export function generateCustomResourceDefination<T extends z.ZodObject>({
   scope: "Namespaced" | "Cluster";
   schema: T;
 }) {
-  const jsonSchema = z.toJSONSchema(schema, { target: "draft-4" });
+  const jsonSchema = z.toJSONSchema(schema, {
+    target: "draft-4",
+    override(ctx) {
+      delete ctx.jsonSchema.additionalProperties;
+    },
+  });
 
   logger.debug({ type: "jsonSchema", jsonSchema });
 
   const openApiSchema = convertSync(jsonSchema, { dereference: false });
 
-  logger.debug({ type: "openApiSchema", openApiSchema });
+  logger.debug({
+    type: "openApiSchema",
+    openApiSchema: openApiSchema,
+  });
 
   return {
     apiVersion: "apiextensions.k8s.io/v1",

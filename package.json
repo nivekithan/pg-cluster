@@ -4,8 +4,8 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "dev": "node src/index.ts | pino-pretty",
-    "build:crds": "node scripts/generate_crd.ts | pino-pretty"
+    "dev": "node --watch src/index.ts | pino-pretty",
+    "build:crds": "node  scripts/generate_crd.ts | pino-pretty"
   },
   "keywords": [],
   "author": "",

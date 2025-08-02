@@ -8,6 +8,6 @@ export const SimpleWebServerCrd = generateCustomResourceDefination({
     plural: "webservers",
     singular: "webserver",
   },
-  schema: z.object({ port: z.int().min(1) }),
+  schema: z.object({ spec: z.object({ port: z.int().min(1) }) }),
   scope: "Namespaced",
 });

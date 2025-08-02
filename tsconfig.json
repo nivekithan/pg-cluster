@@ -22,5 +22,6 @@
     "lib": ["es2022"],
     "types": ["@types/node"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+  "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+  "exclude": ["external-repo"]
 }
