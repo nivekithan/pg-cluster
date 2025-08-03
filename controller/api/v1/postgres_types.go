@@ -31,7 +31,53 @@ type PostgresSpec struct {
 
 // PostgresStatus defines the observed state of Postgres.
 type PostgresStatus struct {
-	ManagedDatabaseList []string `json:"managedDatabaseList"`
+	// Conditions represent the latest available observations of the Postgres state
+	// +listType=map
+	// +listMapKey=type
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
+
+	// DeploymentName is the name of the PostgreSQL deployment
+	// +optional
+	DeploymentName string `json:"deploymentName,omitempty"`
+
+	// Replicas is the desired number of replicas
+	// +optional
+	Replicas int32 `json:"replicas,omitempty"`
+
+	// ServiceName is the name of the PostgreSQL service
+	// +optional
+	ServiceName string `json:"serviceName,omitempty"`
+
+	// ServiceType is the type of the service (NodePort, LoadBalancer, etc)
+	// +optional
+	ServiceType string `json:"serviceType,omitempty"`
+
+	// NodePort is the node port assigned (for NodePort services)
+	// +optional
+	NodePort int32 `json:"nodePort,omitempty"`
+
+	// ConnectionPort is the port to connect to PostgreSQL
+	// +optional
+	ConnectionPort int32 `json:"connectionPort,omitempty"`
+
+	// DatabaseName is the default database name
+	// +optional
+	DatabaseName string `json:"databaseName,omitempty"`
+
+	// Username is the default username
+	// +optional
+	Username string `json:"username,omitempty"`
+
+	// ManagedDatabaseList contains the list of databases currently managed
+	// +optional
+	ManagedDatabaseList []string `json:"managedDatabaseList,omitempty"`
+
+	// ObservedGeneration reflects the generation of the most recently observed Postgres spec
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
