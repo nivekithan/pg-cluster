@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +45,7 @@ type PostgresReconciler struct {
 // +kubebuilder:rbac:groups=database.kube.nivekithan.com,resources=postgres/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=database.kube.nivekithan.com,resources=postgres/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -73,6 +75,14 @@ func (r *PostgresReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	log.Info("Ensured Deployment", "deploymentName", postgresDeployment.Name)
+
+	postgresService, err := r.ensureService(ctx, postgres)
+	if err != nil {
+		log.Error(err, "Failed to ensure Service")
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Ensured Service", "serviceName", postgresService.Name)
 
 	return ctrl.Result{}, nil
 }
@@ -167,11 +177,75 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 	return &postgresDeployment, nil
 }
 
+func (r *PostgresReconciler) ensureService(ctx context.Context, postgres databasev1.Postgres) (*corev1.Service, error) {
+	log := logf.FromContext(ctx)
+	serviceName := fmt.Sprintf("%s-service", postgres.Name)
+
+	var postgresService corev1.Service
+
+	if err := r.Get(ctx, types.NamespacedName{Namespace: postgres.Namespace, Name: serviceName}, &postgresService); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			log.Error(err, "Failed to get Service")
+			return nil, err
+		}
+
+		log.Info("Service not found, creating new one")
+	}
+
+	if postgresService.Name != "" {
+		log.Info("Service already exists", "serviceName", postgresService.Name)
+		return &postgresService, nil
+	}
+
+	labels := map[string]string{
+		"app":      "postgres",
+		"instance": postgres.Name,
+	}
+
+	postgresService = corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: postgres.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeNodePort,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "postgres",
+					Port:       5432,
+					TargetPort: intstr.FromInt(5432),
+					NodePort:   30432,
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	// Set owner reference for Service
+	if err := controllerutil.SetControllerReference(&postgres, &postgresService, r.Scheme); err != nil {
+		log.Error(err, "Failed to set owner reference for Service")
+		return nil, err
+	}
+
+	// Create Service
+	if err := r.Client.Create(ctx, &postgresService); err != nil {
+		if client.IgnoreAlreadyExists(err) != nil {
+			log.Error(err, "Failed to create Service")
+			return nil, err
+		}
+	}
+
+	return &postgresService, nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1.Postgres{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
 		Named("postgres").
 		Complete(r)
 }
