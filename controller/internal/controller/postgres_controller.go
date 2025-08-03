@@ -47,7 +47,16 @@ type PostgresReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.21.0/pkg/reconcile
 func (r *PostgresReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	log := logf.FromContext(ctx)
+
+	var postgres databasev1.Postgres
+
+	if err := r.Get(ctx, req.NamespacedName, &postgres); err != nil {
+		log.Error(err, "unable to fetch postgres")
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	log.Info("Found Postgres instance", "postgres", postgres)
 
 	// TODO(user): your logic here
 

@@ -6,4 +6,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: postgres-sample
 spec:
-  # TODO(user): Add fields here
+  size: "100"
+  databaseList:
+    - database1
+    - database2
+    - database3

@@ -25,7 +25,7 @@ import (
 
 // PostgresSpec defines the desired state of Postgres
 type PostgresSpec struct {
-	Size string `json:"size"`
+	Size         string   `json:"size"`
 	DatabaseList []string `json:"databaseList"`
 }
 
