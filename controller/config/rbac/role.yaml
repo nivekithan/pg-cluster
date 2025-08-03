@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - database.kube.nivekithan.com
+  resources:
+  - postgres
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - database.kube.nivekithan.com
+  resources:
+  - postgres/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - database.kube.nivekithan.com
+  resources:
+  - postgres/status
+  verbs:
+  - get
+  - patch
+  - update
