@@ -140,7 +140,7 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 					Containers: []corev1.Container{
 						{
 							Name:  "postgres",
-							Image: "postgres:15",
+							Image: "postgres:17",
 							Env: []corev1.EnvVar{
 								{
 									Name:  "POSTGRES_DB",
