@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,8 +26,8 @@ import (
 
 // PostgresSpec defines the desired state of Postgres
 type PostgresSpec struct {
-	Size         string   `json:"size"`
-	DatabaseList []string `json:"databaseList"`
+	Size         resource.Quantity `json:"size"`
+	DatabaseList []string          `json:"databaseList"`
 }
 
 // PostgresStatus defines the observed state of Postgres.

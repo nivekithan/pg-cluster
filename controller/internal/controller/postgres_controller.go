@@ -46,6 +46,7 @@ type PostgresReconciler struct {
 // +kubebuilder:rbac:groups=database.kube.nivekithan.com,resources=postgres/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -67,6 +68,14 @@ func (r *PostgresReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	log.Info("Found Postgres instance", "postgres", postgres)
+
+	postgresPVC, err := r.ensurePVC(ctx, postgres)
+	if err != nil {
+		log.Error(err, "Failed to ensure PVC")
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Ensured PVC", "pvcName", postgresPVC.Name)
 
 	postgresDeployment, err := r.ensureDeployment(ctx, postgres)
 	if err != nil {
@@ -151,6 +160,22 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 									ContainerPort: 5432,
 									Name:          "postgres",
 									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "postgres-storage",
+									MountPath: "/var/lib/postgresql/data",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "postgres-storage",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: fmt.Sprintf("%s-pvc", postgres.Name),
 								},
 							},
 						},
@@ -240,12 +265,73 @@ func (r *PostgresReconciler) ensureService(ctx context.Context, postgres databas
 	return &postgresService, nil
 }
 
+func (r *PostgresReconciler) ensurePVC(ctx context.Context, postgres databasev1.Postgres) (*corev1.PersistentVolumeClaim, error) {
+	log := logf.FromContext(ctx)
+	pvcName := fmt.Sprintf("%s-pvc", postgres.Name)
+
+	var postgresPVC corev1.PersistentVolumeClaim
+
+	if err := r.Get(ctx, types.NamespacedName{Namespace: postgres.Namespace, Name: pvcName}, &postgresPVC); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			log.Error(err, "Failed to get PVC")
+			return nil, err
+		}
+
+		log.Info("PVC not found, creating new one")
+	}
+
+	if postgresPVC.Name != "" {
+		log.Info("PVC already exists", "pvcName", postgresPVC.Name)
+		return &postgresPVC, nil
+	}
+
+	labels := map[string]string{
+		"app":      "postgres",
+		"instance": postgres.Name,
+	}
+
+	postgresPVC = corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: postgres.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteOnce,
+			},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: postgres.Spec.Size,
+				},
+			},
+		},
+	}
+
+	// Set owner reference for PVC
+	if err := controllerutil.SetControllerReference(&postgres, &postgresPVC, r.Scheme); err != nil {
+		log.Error(err, "Failed to set owner reference for PVC")
+		return nil, err
+	}
+
+	// Create PVC
+	if err := r.Client.Create(ctx, &postgresPVC); err != nil {
+		if client.IgnoreAlreadyExists(err) != nil {
+			log.Error(err, "Failed to create PVC")
+			return nil, err
+		}
+	}
+
+	return &postgresPVC, nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&databasev1.Postgres{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
 		Named("postgres").
 		Complete(r)
 }
