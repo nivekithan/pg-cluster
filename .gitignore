@@ -1,3 +1,7 @@
 node_modules
 external-repo
 crds/*
+grafana-operator
+mariadb-operator
+postgres-operator
+.env*
