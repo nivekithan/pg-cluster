@@ -1,9 +1,4 @@
-FROM debian:bookworm-slim
-
-# explicitly set user/group IDs (same as postgres image)
-RUN set -eux; \
-	groupadd -r postgres --gid=999; \
-	useradd -r -g postgres --uid=999 --home-dir=/var/lib/postgresql --shell=/bin/bash postgres
+FROM postgres:17
 
 RUN apt-get update && \
     apt-get install -y \
