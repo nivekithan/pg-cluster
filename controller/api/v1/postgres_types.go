@@ -26,8 +26,9 @@ import (
 
 // PostgresSpec defines the desired state of Postgres
 type PostgresSpec struct {
-	Size         resource.Quantity `json:"size"`
-	DatabaseList []string          `json:"databaseList"`
+	Size              resource.Quantity `json:"size"`
+	DatabaseList      []string          `json:"databaseList"`
+	PostgresSecretRef string            `json:"postgresSecretRef"`
 }
 
 // PostgresStatus defines the observed state of Postgres.

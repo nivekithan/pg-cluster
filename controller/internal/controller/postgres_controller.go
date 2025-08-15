@@ -47,6 +47,7 @@ type PostgresReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -68,6 +69,13 @@ func (r *PostgresReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	log.Info("Found Postgres instance", "postgres", postgres)
+
+	// Validate secret exists and contains required keys
+	_, err := r.fetchSecret(ctx, postgres)
+	if err != nil {
+		log.Error(err, "Failed to validate secret")
+		return ctrl.Result{}, err
+	}
 
 	postgresPVC, err := r.ensurePVC(ctx, postgres)
 	if err != nil {
@@ -141,18 +149,13 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 						{
 							Name:  "postgres",
 							Image: "nivekithan/postgres-pgbackrest:latest",
-							Env: []corev1.EnvVar{
+							EnvFrom: []corev1.EnvFromSource{
 								{
-									Name:  "POSTGRES_DB",
-									Value: "postgres",
-								},
-								{
-									Name:  "POSTGRES_USER",
-									Value: "postgres",
-								},
-								{
-									Name:  "POSTGRES_PASSWORD",
-									Value: "password",
+									SecretRef: &corev1.SecretEnvSource{
+										LocalObjectReference: corev1.LocalObjectReference{
+											Name: postgres.Spec.PostgresSecretRef,
+										},
+									},
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -323,6 +326,57 @@ func (r *PostgresReconciler) ensurePVC(ctx context.Context, postgres databasev1.
 	}
 
 	return &postgresPVC, nil
+}
+
+func (r *PostgresReconciler) fetchSecret(ctx context.Context, postgres databasev1.Postgres) (*corev1.Secret, error) {
+	log := logf.FromContext(ctx)
+
+	var secret corev1.Secret
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: postgres.Namespace,
+		Name:      postgres.Spec.PostgresSecretRef,
+	}, &secret); err != nil {
+		log.Error(err, "Failed to fetch secret", "secretName", postgres.Spec.PostgresSecretRef)
+		return nil, err
+	}
+
+	required_secrets := []string{
+		// PostgreSQL Configuration
+		"POSTGRES_PASSWORD",
+		"POSTGRES_USER",
+		"POSTGRES_DB",
+		"PGDATA",
+		
+		// S3 Configuration
+		"S3_BUCKET_NAME",
+		"S3_ENDPOINT",
+		"S3_ACCESS_KEY",
+		"S3_ACCESS_KEY_SECRET",
+		"S3_REGION",
+		
+		// pgBackRest Configuration
+		"REPO1_RETENTION_FULL",
+		"STANZA_NAME",
+		"ARCHIVE_TIMEOUT",
+		"MAX_WAL_SENDERS",
+		"WAL_KEEP_SIZE",
+	}
+
+	for _, secretKeyName := range required_secrets {
+		secretValue, ok := secret.Data[secretKeyName]
+
+		if !ok || len(secretValue) == 0 {
+			err := fmt.Errorf("missing required variable :%s", secretKeyName)
+			log.Error(err, "secretName", postgres.Spec.PostgresSecretRef)
+
+			return nil, err
+		}
+
+	}
+
+	log.Info(`Validated that sercret contains all the required variables`);
+
+	return &secret, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
