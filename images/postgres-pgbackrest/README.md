@@ -19,14 +19,25 @@ This Docker image combines PostgreSQL 17 with pgBackRest backup tool with intell
 Create a `.env` file with your S3 storage configuration:
 
 ```bash
+# PostgreSQL Configuration
+POSTGRES_PASSWORD=your-secure-password
+POSTGRES_USER=postgres
+POSTGRES_DB=mydb
+PGDATA=/var/lib/postgresql/data
+
+# S3 Configuration
 S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT=https://your-s3-endpoint.com
 S3_ACCESS_KEY=your-access-key
 S3_ACCESS_KEY_SECRET=your-secret-key
-S3_REGION=your-region
-POSTGRES_DB=your-database-name
-POSTGRES_USER=your-username
-POSTGRES_PASSWORD=your-password
+S3_REGION=us-east-1
+
+# pgBackRest Configuration
+REPO1_RETENTION_FULL=2
+STANZA_NAME=mydb-stanza
+ARCHIVE_TIMEOUT=60s
+MAX_WAL_SENDERS=3
+WAL_KEEP_SIZE=128MB
 ```
 
 ### 2. Run
@@ -78,18 +89,29 @@ The container includes an intelligent pgBackRest wrapper that:
 
 ## Environment Variables
 
-### Required S3 Configuration
+### Required Environment Variables
+
+All environment variables are required - no defaults are provided.
+
+#### PostgreSQL Configuration
+- `POSTGRES_PASSWORD`: PostgreSQL superuser password
+- `POSTGRES_USER`: PostgreSQL superuser name
+- `POSTGRES_DB`: Database name to create
+- `PGDATA`: PostgreSQL data directory
+
+#### S3 Configuration
 - `S3_BUCKET_NAME`: S3 bucket for backups
 - `S3_ENDPOINT`: S3 endpoint URL
 - `S3_ACCESS_KEY`: S3 access key
-- `S3_ACCESS_KEY_SECRET`: S3 secret key  
+- `S3_ACCESS_KEY_SECRET`: S3 secret key
 - `S3_REGION`: S3 region
 
-### PostgreSQL Configuration
-- `POSTGRES_PASSWORD`: Required - PostgreSQL superuser password
-- `POSTGRES_USER`: Optional - PostgreSQL superuser name (default: postgres)
-- `POSTGRES_DB`: Optional - Database name to create (default: postgres)
-- `PGDATA`: Optional - PostgreSQL data directory (default: /var/lib/postgresql/data)
+#### pgBackRest Configuration
+- `REPO1_RETENTION_FULL`: Full backup retention count
+- `STANZA_NAME`: pgBackRest stanza name
+- `ARCHIVE_TIMEOUT`: WAL archive timeout
+- `MAX_WAL_SENDERS`: Maximum WAL senders
+- `WAL_KEEP_SIZE`: WAL keep size
 
 ## Architecture
 

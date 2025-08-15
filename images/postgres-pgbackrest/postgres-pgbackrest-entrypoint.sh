@@ -1,29 +1,11 @@
 #!/bin/bash
 set -e
 
-# Check required pgBackRest environment variables
-required_pgbackrest_vars=(
-    "S3_BUCKET_NAME"
-    "S3_ENDPOINT"
-    "S3_ACCESS_KEY"
-    "S3_ACCESS_KEY_SECRET"
-    "S3_REGION"
-    "REPO1_RETENTION_FULL"
-    "STANZA_NAME"
-    "PGDATA"
-)
-missing_vars=()
+# Source centralized environment validation
+source /validate-env.sh
 
-for var in "${required_pgbackrest_vars[@]}"; do
-    if [ -z "${!var}" ]; then
-        missing_vars+=("$var")
-    fi
-done
-
-if [ ${#missing_vars[@]} -ne 0 ]; then
-    echo "Error: Required pgBackRest environment variables are missing:"
-    printf "  - %s\n" "${missing_vars[@]}"
-    echo "Please set all required variables and try again."
+# Validate all required environment variables
+if ! validate_required_env; then
     exit 1
 fi
 

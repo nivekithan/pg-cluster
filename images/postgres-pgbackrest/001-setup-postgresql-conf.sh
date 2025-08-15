@@ -3,20 +3,11 @@ set -e
 
 echo "Setting up PostgreSQL configuration for pgBackRest..."
 
-# Check required environment variables
-required_vars=("STANZA_NAME" "ARCHIVE_TIMEOUT" "MAX_WAL_SENDERS" "WAL_KEEP_SIZE")
-missing_vars=()
+# Source centralized environment validation
+source /validate-env.sh
 
-for var in "${required_vars[@]}"; do
-    if [ -z "${!var}" ]; then
-        missing_vars+=("$var")
-    fi
-done
-
-if [ ${#missing_vars[@]} -ne 0 ]; then
-    echo "Error: Required environment variables are missing:"
-    printf "  - %s\n" "${missing_vars[@]}"
-    echo "Please set all required variables and try again."
+# Validate all required environment variables
+if ! validate_required_env; then
     exit 1
 fi
 

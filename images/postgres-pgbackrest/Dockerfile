@@ -18,12 +18,16 @@ RUN mkdir -p /etc/pgbackrest/conf.d && \
 COPY pgbackrest.conf /etc/pgbackrest/pgbackrest.conf.template
 COPY postgresql.conf /postgresql.conf.template
 
+# Copy validation script
+COPY validate-env.sh /validate-env.sh
+
 # Copy entrypoint and initialization scripts
 COPY postgres-pgbackrest-entrypoint.sh /postgres-pgbackrest-entrypoint.sh
 COPY 001-setup-postgresql-conf.sh /docker-entrypoint-initdb.d/001-setup-postgresql-conf.sh
 COPY 002-pgbackrest-create-stanza.sh /docker-entrypoint-initdb.d/002-pgbackrest-create-stanza.sh
 
 RUN chown postgres:postgres /etc/pgbackrest/pgbackrest.conf.template /postgresql.conf.template && \
+    chmod +x /validate-env.sh && \
     chmod +x /postgres-pgbackrest-entrypoint.sh && \
     chmod +x /docker-entrypoint-initdb.d/001-setup-postgresql-conf.sh && \
     chmod +x /docker-entrypoint-initdb.d/002-pgbackrest-create-stanza.sh

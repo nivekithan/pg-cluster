@@ -3,9 +3,11 @@ set -e
 
 echo "Creating pgBackRest stanza..."
 
-# Check required environment variable
-if [ -z "$STANZA_NAME" ]; then
-    echo "Error: STANZA_NAME environment variable is required"
+# Source centralized environment validation
+source /validate-env.sh
+
+# Validate all required environment variables
+if ! validate_required_env; then
     exit 1
 fi
 
