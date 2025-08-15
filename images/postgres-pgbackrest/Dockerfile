@@ -35,7 +35,4 @@ RUN chown postgres:postgres /etc/pgbackrest/pgbackrest.conf.template /postgresql
 # Expose PostgreSQL port
 EXPOSE 5432
 
-# Use postgres user as default
-USER postgres
-
 ENTRYPOINT ["/postgres-pgbackrest-entrypoint.sh"]

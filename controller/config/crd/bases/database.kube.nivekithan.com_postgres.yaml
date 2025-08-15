@@ -43,6 +43,8 @@ spec:
                 items:
                   type: string
                 type: array
+              postgresSecretRef:
+                type: string
               size:
                 anyOf:
                 - type: integer
@@ -51,6 +53,7 @@ spec:
                 x-kubernetes-int-or-string: true
             required:
             - databaseList
+            - postgresSecretRef
             - size
             type: object
           status:

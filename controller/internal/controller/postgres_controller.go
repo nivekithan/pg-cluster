@@ -149,6 +149,7 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 						{
 							Name:  "postgres",
 							Image: "nivekithan/postgres-pgbackrest:latest",
+							Args:  []string{"postgres"},
 							EnvFrom: []corev1.EnvFromSource{
 								{
 									SecretRef: &corev1.SecretEnvSource{
@@ -346,14 +347,14 @@ func (r *PostgresReconciler) fetchSecret(ctx context.Context, postgres databasev
 		"POSTGRES_USER",
 		"POSTGRES_DB",
 		"PGDATA",
-		
+
 		// S3 Configuration
 		"S3_BUCKET_NAME",
 		"S3_ENDPOINT",
 		"S3_ACCESS_KEY",
 		"S3_ACCESS_KEY_SECRET",
 		"S3_REGION",
-		
+
 		// pgBackRest Configuration
 		"REPO1_RETENTION_FULL",
 		"STANZA_NAME",
@@ -374,7 +375,7 @@ func (r *PostgresReconciler) fetchSecret(ctx context.Context, postgres databasev
 
 	}
 
-	log.Info(`Validated that sercret contains all the required variables`);
+	log.Info(`Validated that sercret contains all the required variables`)
 
 	return &secret, nil
 }
