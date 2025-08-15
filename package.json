@@ -1,0 +1,16 @@
+{
+  "name": "pg-cluster",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "set-postgres-secrets": "dotenv -e ./manifests/scripts/.env -- ./manifests/scripts/set-postgres-secrets.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.14.0",
+  "devDependencies": {
+    "dotenv-cli": "^10.0.0"
+  }
+}
