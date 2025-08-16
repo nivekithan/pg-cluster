@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-backup
+  namespace: default
+  labels:
+    app: postgres-backup
+    component: backup
+spec:
+  # Job will be considered complete when 1 pod succeeds
+  completions: 1
+  parallelism: 1
+  backoffLimit: 3
+
+  template:
+    metadata:
+      labels:
+        app: postgres-backup
+        component: backup
+    spec:
+      restartPolicy: Never
+
+      # Run as postgres user for backup operations
+      securityContext:
+        runAsUser: 999 # postgres user
+        runAsGroup: 999 # postgres group
+
+      containers:
+        - name: postgres-backup
+          image: nivekithan/postgres-pgbackrest:latest
+
+          # Run backup command
+          args: ["backup", "--stanza", "$(STANZA_NAME)", "--type=full"]
+
+          # Environment variables from secret
+          envFrom:
+            - secretRef:
+                name: postgres-secrets
+
+          # Mount the same volume as the PostgreSQL instance
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+              readOnly: true # Backup only needs read access
+
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-sample-pvc # Matches controller pattern: ${postgres.Name}-pvc

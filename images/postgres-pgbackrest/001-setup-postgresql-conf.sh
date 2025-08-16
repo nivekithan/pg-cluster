@@ -23,3 +23,8 @@ else
     echo "Error: postgresql.conf.template not found"
     exit 1
 fi
+
+# Add trust authentication for service connections
+echo "# Trust authentication for service connections" >> "$PGDATA/pg_hba.conf"
+echo "host all all postgres-sample-service trust" >> "$PGDATA/pg_hba.conf"
+echo "Added trust authentication for postgres-sample-service"

@@ -25,12 +25,14 @@ COPY validate-env.sh /validate-env.sh
 COPY postgres-pgbackrest-entrypoint.sh /postgres-pgbackrest-entrypoint.sh
 COPY 001-setup-postgresql-conf.sh /docker-entrypoint-initdb.d/001-setup-postgresql-conf.sh
 COPY 002-pgbackrest-create-stanza.sh /docker-entrypoint-initdb.d/002-pgbackrest-create-stanza.sh
+COPY 003-setup-pg-hba.sh /docker-entrypoint-initdb.d/003-setup-pg-hba.sh
 
 RUN chown postgres:postgres /etc/pgbackrest/pgbackrest.conf.template /postgresql.conf.template && \
     chmod +x /validate-env.sh && \
     chmod +x /postgres-pgbackrest-entrypoint.sh && \
     chmod +x /docker-entrypoint-initdb.d/001-setup-postgresql-conf.sh && \
-    chmod +x /docker-entrypoint-initdb.d/002-pgbackrest-create-stanza.sh
+    chmod +x /docker-entrypoint-initdb.d/002-pgbackrest-create-stanza.sh && \
+    chmod +x /docker-entrypoint-initdb.d/003-setup-pg-hba.sh
 
 # Expose PostgreSQL port
 EXPOSE 5432
