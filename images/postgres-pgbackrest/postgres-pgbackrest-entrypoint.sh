@@ -12,6 +12,8 @@ fi
 # Process pgBackRest configuration template
 envsubst < /etc/pgbackrest/pgbackrest.conf.template > /etc/pgbackrest/pgbackrest.conf
 
+ls /var/lib/postgresql/data
+
 case "$1" in
     "postgres")
         # Start PostgreSQL with original entrypoint

@@ -25,6 +25,7 @@ validate_required_env() {
         "ARCHIVE_TIMEOUT"
         "MAX_WAL_SENDERS"
         "WAL_KEEP_SIZE"
+        "PG1_SOCKET_PATH"
     )
     
     # Check all required variables

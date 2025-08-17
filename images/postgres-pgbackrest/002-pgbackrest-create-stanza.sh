@@ -12,6 +12,6 @@ if ! validate_required_env; then
 fi
 
 # Create stanza
-pgbackrest stanza-create --stanza="$STANZA_NAME"
+pgbackrest stanza-create --stanza="$STANZA_NAME" --log-level-console=info
 
 echo "pgBackRest stanza '$STANZA_NAME' created successfully"
