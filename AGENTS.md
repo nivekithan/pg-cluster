@@ -2,19 +2,6 @@
 
 ## Important Note
 
-The `mariadb-operator/` directory contains a production-ready Kubernetes operator for MariaDB database and serves as a reference for implementing best practices in our PostgreSQL operator. Since both operators manage stateful database applications, the MariaDB operator provides excellent patterns for:
-
-- Custom Resource Definitions (CRDs) and API design
-- Controller implementation patterns
-- StatefulSet and Pod management
-- Backup and recovery mechanisms
-- High availability and clustering
-- Configuration management
-- Webhook implementations
-- Testing strategies
-
-**NEVER modify anything in mariadb-operator/** - it's read-only reference material. All PostgreSQL operator development work should be done in the `controller/` directory.
-
 The `postgres-operator/` directory contains the official Crunchy Data PostgreSQL Operator, which is a production-ready reference implementation for PostgreSQL clustering, backup/recovery, and high availability. This serves as an excellent reference for PostgreSQL-specific patterns including:
 
 - PostgreSQL clustering with Patroni
@@ -26,6 +13,18 @@ The `postgres-operator/` directory contains the official Crunchy Data PostgreSQL
 - PostgreSQL-specific testing approaches
 
 **NEVER modify anything in postgres-operator/** - it's read-only reference material for learning PostgreSQL operator best practices.
+
+The `percona-postgresql-operator/` directory contains the Percona Distribution for PostgreSQL Operator, which provides another production-ready reference implementation focusing on enterprise PostgreSQL features. This serves as an additional reference for:
+
+- PostgreSQL clustering with Patroni and alternative approaches
+- Advanced backup strategies and disaster recovery
+- Multi-cluster and cross-datacenter replication
+- Enterprise security features and compliance
+- Performance monitoring and optimization
+- Custom resource management patterns
+- Alternative testing and deployment strategies
+
+**NEVER modify anything in percona-postgresql-operator/** - it's read-only reference material for learning alternative PostgreSQL operator implementations.
 
 ## Build & Test Commands
 

@@ -4,4 +4,5 @@ crds/*
 grafana-operator
 mariadb-operator
 postgres-operator
+percona-postgresql-operator
 .env*
