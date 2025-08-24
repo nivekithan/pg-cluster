@@ -30,6 +30,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	databasev1 "github.com/nivekithan/pg-cluster/api/v1"
+	"github.com/nivekithan/pg-cluster/internal/domains/backup"
+	"github.com/nivekithan/pg-cluster/internal/domains/ipc"
+	"github.com/nivekithan/pg-cluster/internal/domains/pki"
+	postgresdomain "github.com/nivekithan/pg-cluster/internal/domains/postgres"
+	"github.com/nivekithan/pg-cluster/internal/shared"
 )
 
 var _ = Describe("Postgres Controller", func() {
@@ -113,7 +118,18 @@ var _ = Describe("Postgres Controller", func() {
 			controllerReconciler := &PostgresReconciler{
 				Client: k8sClient,
 				Scheme: k8sClient.Scheme(),
+				Config: cfg,
 			}
+
+			// Initialize the domains manually for testing
+			domainCtx := shared.DomainContext{
+				Client: k8sClient,
+				Config: cfg,
+			}
+			controllerReconciler.PostgresDomain = postgresdomain.New(domainCtx)
+			controllerReconciler.BackupDomain = backup.New(domainCtx)
+			controllerReconciler.PKIDomain = pki.New(domainCtx)
+			controllerReconciler.IPCDomain = ipc.New(domainCtx)
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: typeNamespacedName,
