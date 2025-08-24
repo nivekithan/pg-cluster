@@ -40,6 +40,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	databasev1 "github.com/nivekithan/pg-cluster/api/v1"
+	"github.com/nivekithan/pg-cluster/internal/pki"
+)
+
+const (
+	StanzaCreatedCondition = "StanzaCreated"
 )
 
 // PostgresReconciler reconciles a Postgres object
@@ -56,7 +61,7 @@ type PostgresReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods/exec,verbs=create
 
@@ -87,6 +92,15 @@ func (r *PostgresReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		log.Error(err, "Failed to validate secret")
 		return ctrl.Result{}, err
 	}
+
+	// Ensure CA certificate secret exists
+	caSecret, err := r.ensureCASecret(ctx, postgres)
+	if err != nil {
+		log.Error(err, "Failed to ensure CA secret")
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Ensured CA secret", "secretName", caSecret.Name)
 
 	postgresPVC, err := r.ensurePVC(ctx, postgres)
 	if err != nil {
@@ -240,7 +254,7 @@ func (r *PostgresReconciler) ensureDeployment(ctx context.Context, postgres data
 	}
 
 	// Create Deployment
-	if err := r.Client.Create(ctx, &postgresDeployment); err != nil {
+	if err := r.Create(ctx, &postgresDeployment); err != nil {
 		if client.IgnoreAlreadyExists(err) != nil {
 			log.Error(err, "Failed to create Deployment")
 			return nil, err
@@ -303,7 +317,7 @@ func (r *PostgresReconciler) ensureService(ctx context.Context, postgres databas
 	}
 
 	// Create Service
-	if err := r.Client.Create(ctx, &postgresService); err != nil {
+	if err := r.Create(ctx, &postgresService); err != nil {
 		if client.IgnoreAlreadyExists(err) != nil {
 			log.Error(err, "Failed to create Service")
 			return nil, err
@@ -363,7 +377,7 @@ func (r *PostgresReconciler) ensurePVC(ctx context.Context, postgres databasev1.
 	}
 
 	// Create PVC
-	if err := r.Client.Create(ctx, &postgresPVC); err != nil {
+	if err := r.Create(ctx, &postgresPVC); err != nil {
 		if client.IgnoreAlreadyExists(err) != nil {
 			log.Error(err, "Failed to create PVC")
 			return nil, err
@@ -424,7 +438,7 @@ func (r *PostgresReconciler) ensureSocketPVC(ctx context.Context, postgres datab
 	}
 
 	// Create socket PVC
-	if err := r.Client.Create(ctx, &socketPVC); err != nil {
+	if err := r.Create(ctx, &socketPVC); err != nil {
 		if client.IgnoreAlreadyExists(err) != nil {
 			log.Error(err, "Failed to create socket PVC")
 			return nil, err
@@ -440,7 +454,7 @@ func (r *PostgresReconciler) createSidecarContainer(postgres databasev1.Postgres
 			Name:          "pgbackrest-sidecar",
 			Image:         "nivekithan/postgres-pgbackrest:latest",
 			Args:          []string{"sh", "-c", "while true; do sleep 3600; done"},
-			RestartPolicy: (*corev1.ContainerRestartPolicy)(ptr.To(corev1.ContainerRestartPolicyAlways)),
+			RestartPolicy: ptr.To(corev1.ContainerRestartPolicyAlways),
 			EnvFrom: []corev1.EnvFromSource{
 				{
 					SecretRef: &corev1.SecretEnvSource{
@@ -469,7 +483,7 @@ func (r *PostgresReconciler) handleStanzaCreation(ctx context.Context, postgres 
 
 	// Check if StanzaCreated condition is already true
 	for _, condition := range postgres.Status.Conditions {
-		if condition.Type == "StanzaCreated" && condition.Status == metav1.ConditionTrue {
+		if condition.Type == StanzaCreatedCondition && condition.Status == metav1.ConditionTrue {
 			log.Info("Stanza already created")
 			return nil
 		}
@@ -621,7 +635,7 @@ func (r *PostgresReconciler) updateStanzaCreatedCondition(ctx context.Context, p
 	var condition metav1.Condition
 	if execErr != nil {
 		condition = metav1.Condition{
-			Type:               "StanzaCreated",
+			Type:               StanzaCreatedCondition,
 			Status:             metav1.ConditionFalse,
 			LastTransitionTime: metav1.Now(),
 			Reason:             "StanzaCreationFailed",
@@ -629,7 +643,7 @@ func (r *PostgresReconciler) updateStanzaCreatedCondition(ctx context.Context, p
 		}
 	} else {
 		condition = metav1.Condition{
-			Type:               "StanzaCreated",
+			Type:               StanzaCreatedCondition,
 			Status:             metav1.ConditionTrue,
 			LastTransitionTime: metav1.Now(),
 			Reason:             "StanzaCreationSucceeded",
@@ -639,7 +653,7 @@ func (r *PostgresReconciler) updateStanzaCreatedCondition(ctx context.Context, p
 
 	// Update or replace the condition
 	for i, existingCondition := range postgres.Status.Conditions {
-		if existingCondition.Type == "StanzaCreated" {
+		if existingCondition.Type == StanzaCreatedCondition {
 			postgres.Status.Conditions[i] = condition
 			break
 		}
@@ -665,7 +679,7 @@ func (r *PostgresReconciler) ensureStanzaCreatedCondition(ctx context.Context, p
 
 	// Check if StanzaCreated condition already exists
 	for _, condition := range postgres.Status.Conditions {
-		if condition.Type == "StanzaCreated" {
+		if condition.Type == StanzaCreatedCondition {
 			log.Info("StanzaCreated condition already exists", "status", condition.Status)
 			return nil
 		}
@@ -673,7 +687,7 @@ func (r *PostgresReconciler) ensureStanzaCreatedCondition(ctx context.Context, p
 
 	// Add StanzaCreated condition with default false status
 	condition := metav1.Condition{
-		Type:               "StanzaCreated",
+		Type:               StanzaCreatedCondition,
 		Status:             metav1.ConditionUnknown,
 		LastTransitionTime: metav1.Now(),
 		Reason:             "StanzaNotCreated",
@@ -744,6 +758,85 @@ func (r *PostgresReconciler) fetchSecret(ctx context.Context, postgres databasev
 	return &secret, nil
 }
 
+func (r *PostgresReconciler) ensureCASecret(ctx context.Context, postgres databasev1.Postgres) (*corev1.Secret, error) {
+	log := logf.FromContext(ctx)
+	secretName := fmt.Sprintf("%s-cluster-ca-cert", postgres.Name)
+
+	var caSecret corev1.Secret
+
+	if err := r.Get(ctx, types.NamespacedName{Namespace: postgres.Namespace, Name: secretName}, &caSecret); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			log.Error(err, "Failed to get CA secret")
+			return nil, err
+		}
+
+		log.Info("CA secret not found, creating new one")
+	}
+
+	if caSecret.Name != "" {
+		log.Info("CA secret already exists", "secretName", caSecret.Name)
+		return &caSecret, nil
+	}
+
+	privateKey, err := pki.GeneratePrivateKeyForCertificate()
+	if err != nil {
+		log.Error(err, "Failed to generate private key for CA")
+		return nil, fmt.Errorf("failed to generate private key for CA: %w", err)
+	}
+
+	certificate, err := pki.GenerateRootCerificate(privateKey)
+	if err != nil {
+		log.Error(err, "Failed to generate root certificate")
+		return nil, fmt.Errorf("failed to generate root certificate: %w", err)
+	}
+
+	certPEM, err := pki.MarshalCertificateToPEM(certificate)
+	if err != nil {
+		log.Error(err, "Failed to marshal certificate to PEM")
+		return nil, fmt.Errorf("failed to marshal certificate to PEM: %w", err)
+	}
+
+	keyPEM, err := pki.MarshalPrivateKeyToPEM(privateKey)
+	if err != nil {
+		log.Error(err, "Failed to marshal private key to PEM")
+		return nil, fmt.Errorf("failed to marshal private key to PEM: %w", err)
+	}
+
+	labels := map[string]string{
+		"app":      "postgres",
+		"instance": postgres.Name,
+		"type":     "ca-cert",
+	}
+
+	caSecret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: postgres.Namespace,
+			Labels:    labels,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"root.crt": certPEM,
+			"root.key": keyPEM,
+		},
+	}
+
+	if err := controllerutil.SetControllerReference(&postgres, &caSecret, r.Scheme); err != nil {
+		log.Error(err, "Failed to set owner reference for CA secret")
+		return nil, err
+	}
+
+	if err := r.Create(ctx, &caSecret); err != nil {
+		if client.IgnoreAlreadyExists(err) != nil {
+			log.Error(err, "Failed to create CA secret")
+			return nil, err
+		}
+	}
+
+	log.Info("Successfully created CA secret", "secretName", secretName)
+	return &caSecret, nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *PostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Initialize the Config for exec operations
@@ -754,6 +847,7 @@ func (r *PostgresReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&corev1.Secret{}).
 		Named("postgres").
 		Complete(r)
 }

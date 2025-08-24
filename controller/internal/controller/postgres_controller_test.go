@@ -21,7 +21,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -43,28 +45,68 @@ var _ = Describe("Postgres Controller", func() {
 		postgres := &databasev1.Postgres{}
 
 		BeforeEach(func() {
+			By("creating the test secret")
+			secretName := "test-postgres-secret"
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"POSTGRES_PASSWORD":    []byte("testpass"),
+					"POSTGRES_USER":        []byte("testuser"),
+					"POSTGRES_DB":          []byte("testdb"),
+					"PGDATA":               []byte("/var/lib/postgresql/data"),
+					"S3_BUCKET_NAME":       []byte("test-bucket"),
+					"S3_ENDPOINT":          []byte("minio:9000"),
+					"S3_ACCESS_KEY":        []byte("testkey"),
+					"S3_ACCESS_KEY_SECRET": []byte("testsecret"),
+					"S3_REGION":            []byte("us-east-1"),
+					"REPO1_RETENTION_FULL": []byte("7"),
+					"STANZA_NAME":          []byte("test-stanza"),
+					"ARCHIVE_TIMEOUT":      []byte("60"),
+					"MAX_WAL_SENDERS":      []byte("3"),
+					"WAL_KEEP_SIZE":        []byte("1024"),
+					"PG1_SOCKET_PATH":      []byte("/tmp/postgres"),
+				},
+			}
+			err := k8sClient.Get(ctx, types.NamespacedName{Name: secretName, Namespace: "default"}, &corev1.Secret{})
+			if err != nil && errors.IsNotFound(err) {
+				Expect(k8sClient.Create(ctx, secret)).To(Succeed())
+			}
+
 			By("creating the custom resource for the Kind Postgres")
-			err := k8sClient.Get(ctx, typeNamespacedName, postgres)
+			err = k8sClient.Get(ctx, typeNamespacedName, postgres)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &databasev1.Postgres{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: databasev1.PostgresSpec{
+						Size:              resource.MustParse("1Gi"),
+						DatabaseList:      []string{"testdb1", "testdb2"},
+						PostgresSecretRef: secretName,
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
+			By("Cleanup the specific resource instance Postgres")
 			resource := &databasev1.Postgres{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			}
 
-			By("Cleanup the specific resource instance Postgres")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("Cleanup the test secret")
+			secret := &corev1.Secret{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: "test-postgres-secret", Namespace: "default"}, secret)
+			if err == nil {
+				Expect(k8sClient.Delete(ctx, secret)).To(Succeed())
+			}
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
