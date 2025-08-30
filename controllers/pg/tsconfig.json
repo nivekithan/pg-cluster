@@ -16,7 +16,9 @@
     "module": "preserve",
     "noEmit": true,
 
-    "lib": ["es2022"]
+    "lib": ["es2022"],
+    "types": ["@types/node"],
+    "allowImportingTsExtensions": true
   },
-  "include": ["./src/**/*"]
+  "include": ["./src/**/*", "./scripts/**/*"]
 }
