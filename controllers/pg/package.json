@@ -1,5 +1,5 @@
 {
-  "name": "pg-cluster",
+  "name": "pg",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
