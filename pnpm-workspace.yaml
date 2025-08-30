@@ -1,2 +1,5 @@
 packages:
   - controllers/**
+
+patchedDependencies:
+  '@openapi-contrib/json-schema-to-openapi-schema@4.1.0': patches/@openapi-contrib__json-schema-to-openapi-schema@4.1.0.patch

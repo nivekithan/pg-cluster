@@ -1,0 +1,198 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index 98615cb6b357e2489173045dd6aa266d76dff1e4..1639a10f46562ddca8ff2f5f8c797003c88b08df 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -9,6 +9,12 @@ interface Options {
+     dereferenceOptions?: ParserOptions | undefined;
+ }
+ 
++interface OptionsSync {
++  cloneSchema?: boolean;
++  convertUnreferencedDefinitions?: boolean;
++}
++
+ declare const convert: <T extends object = JSONSchema4>(schema: T, options?: Options) => Promise<OpenAPIV3.Document>;
++declare const convertSync: <T extends object = JSONSchema4>(schema: T, options?: OptionsSync) => OpenAPIV3.Document;
+ 
+-export { convert, convert as default };
++export { convert, convert as default, convertSync };
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index 98615cb6b357e2489173045dd6aa266d76dff1e4..a519be53bf34cbbce47fbf30d7d3761165197108 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -2,6 +2,7 @@ import { JSONSchema4 } from 'json-schema';
+ import { ParserOptions } from '@apidevtools/json-schema-ref-parser';
+ import { OpenAPIV3 } from 'openapi-types';
+ 
++
+ interface Options {
+     cloneSchema?: boolean;
+     dereference?: boolean;
+@@ -9,6 +10,12 @@ interface Options {
+     dereferenceOptions?: ParserOptions | undefined;
+ }
+ 
++interface OptionsSync {
++  cloneSchema?: boolean;
++  convertUnreferencedDefinitions?: boolean;
++}
++
+ declare const convert: <T extends object = JSONSchema4>(schema: T, options?: Options) => Promise<OpenAPIV3.Document>;
++declare const convertSync: <T extends object = JSONSchema4>(schema: T, options?: OptionsSync) => OpenAPIV3.Document;
+ 
+-export { convert, convert as default };
++export { convert, convert as default, convertSync };
+diff --git a/dist/index.js b/dist/index.js
+index 6d269a3d4437adbfd8466b28cbc5387800554d39..0e6fc8ef329b8618873a103fd88a49bb285508bc 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -134,6 +134,64 @@ var convert = async (schema, options) => {
+   }
+   return rootSchema;
+ };
++var handleDefinitionSync = (def, schema) => {
++  if (typeof def !== "object") {
++    return def;
++  }
++  const type = def.type;
++  if (type) {
++    const walker = new import_json_schema_walker.Walker();
++    walker.loadSchemaSync(
++      {
++        definitions: schema["definitions"] || [],
++        ...def,
++        $schema: schema["$schema"]
++      },
++      {
++        dereference: true,
++        cloneSchema: true,
++        dereferenceOptions: {
++          dereference: {
++            circular: "ignore"
++          }
++        }
++      }
++    );
++    walker.walkSync(convertSchema, walker.vocabularies.DRAFT_07);
++    if ("definitions" in walker.rootSchema) {
++      delete walker.rootSchema.definitions;
++    }
++    return walker.rootSchema;
++  }
++  if (Array.isArray(def)) {
++    const typeArr = def;
++    const hasNull = typeArr.includes("null");
++    if (hasNull) {
++      const actualTypes = typeArr.filter((l) => l !== "null");
++      return {
++        type: actualTypes.length === 1 ? actualTypes[0] : actualTypes,
++        nullable: true
++        // this is incorrect but thats ok, we are in the inbetween phase here
++      };
++    }
++  }
++  return def;
++};
++var convertSync = async (schema, options) => {
++  const walker = new import_json_schema_walker.Walker();
++  const convertDefs = options?.convertUnreferencedDefinitions ?? true;
++  walker.loadSchemaSync(schema, options);
++  walker.walkSync(convertSchema, walker.vocabularies.DRAFT_07);
++  const rootSchema = walker.rootSchema;
++  if (convertDefs && rootSchema?.definitions) {
++    for (const defName in rootSchema.definitions) {
++      const def = rootSchema.definitions[defName];
++      rootSchema.definitions[defName] = handleDefinitionSync(def, schema);
++    }
++  }
++  return rootSchema;
++};
++
+ function stripIllegalKeywords(schema) {
+   if (typeof schema !== "object") {
+     return schema;
+@@ -322,5 +380,6 @@ function rewriteExclusiveMinMax(schema) {
+ var index_default = convert;
+ // Annotate the CommonJS export names for ESM import in node:
+ 0 && (module.exports = {
+-  convert
++  convert,
++  convertSync,
+ });
+diff --git a/dist/index.mjs b/dist/index.mjs
+index c75f758bfa31607702436f625eb6f7c22e9d6071..0656f961cffd53608447ffd43944f93fab1afd65 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -109,6 +109,64 @@ var convert = async (schema, options) => {
+   }
+   return rootSchema;
+ };
++var handleDefinitionSync =  (def, schema) => {
++  if (typeof def !== "object") {
++    return def;
++  }
++  const type = def.type;
++  if (type) {
++    const walker = new Walker();
++    walker.loadSchemaSync(
++      {
++        definitions: schema["definitions"] || [],
++        ...def,
++        $schema: schema["$schema"]
++      },
++      {
++        dereference: true,
++        cloneSchema: true,
++        dereferenceOptions: {
++          dereference: {
++            circular: "ignore"
++          }
++        }
++      }
++    );
++    walker.walkSync(convertSchema, walker.vocabularies.DRAFT_07);
++    if ("definitions" in walker.rootSchema) {
++      delete walker.rootSchema.definitions;
++    }
++    return walker.rootSchema;
++  }
++  if (Array.isArray(def)) {
++    const typeArr = def;
++    const hasNull = typeArr.includes("null");
++    if (hasNull) {
++      const actualTypes = typeArr.filter((l) => l !== "null");
++      return {
++        type: actualTypes.length === 1 ? actualTypes[0] : actualTypes,
++        nullable: true
++        // this is incorrect but thats ok, we are in the inbetween phase here
++      };
++    }
++  }
++  return def;
++};
++var convertSync = (schema, options) => {
++  const walker = new Walker();
++  const convertDefs = options?.convertUnreferencedDefinitions ?? true;
++  walker.loadSchemaSync(schema, options);
++  walker.walkSync(convertSchema, walker.vocabularies.DRAFT_07);
++  const rootSchema = walker.rootSchema;
++  if (convertDefs && rootSchema?.definitions) {
++    for (const defName in rootSchema.definitions) {
++      const def = rootSchema.definitions[defName];
++      rootSchema.definitions[defName] = handleDefinitionSync(def, schema);
++    }
++  }
++  return rootSchema;
++};
++
+ function stripIllegalKeywords(schema) {
+   if (typeof schema !== "object") {
+     return schema;
+@@ -297,5 +355,6 @@ function rewriteExclusiveMinMax(schema) {
+ var index_default = convert;
+ export {
+   convert,
+-  index_default as default
++  index_default as default,
++  convertSync,
+ };
