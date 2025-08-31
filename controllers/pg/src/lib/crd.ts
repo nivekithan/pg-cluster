@@ -1,5 +1,8 @@
 import { CustomObjectsApi, type KubeConfig } from "@kubernetes/client-node";
 import { convertSync } from "@openapi-contrib/json-schema-to-openapi-schema";
+import { Effect } from "effect";
+import { EffectPrototype } from "effect/Effectable";
+import { func } from "effect/FastCheck";
 import type { Logger } from "pino";
 import yaml from "yaml";
 import { z, type ZodObject } from "zod";
@@ -25,54 +28,61 @@ export class Crd<T extends ZodObject> {
     this.#group = group;
     this.#kind = kind;
     this.#spec = spec;
-    this.#logger = logger.child({ group, kind });
+    this.#logger = logger.child({ group, kind, class: "Crd" });
   }
 
   getApi(kc: KubeConfig) {
     const customObjectsApi = kc.makeApiClient(CustomObjectsApi);
 
     return {
-      listForAllNamesapce: async () => {
-        try {
-          const res = await customObjectsApi.listClusterCustomObject({
+      listForAllNamesapce: Effect.gen(this, function* () {
+        const res = yield* Effect.tryPromise(async () => {
+          return customObjectsApi.listCustomObjectForAllNamespaces({
             group: this.#group,
+            plural: this.#names().plural,
             version: this.#version,
-            plural: this.#kind.toLowerCase(),
           });
+        });
 
-          this.#logger.debug({ query: "listForAllNamesapce", res });
+        this.#logger.debug({ query: "listForAllNamesapce", res });
 
-          const finalResult = z
+        const finalResult = yield* Effect.try(() => {
+          return z
             .looseObject({ items: z.array(this.#getCrSchema()) })
             .parse(res);
+        });
 
-          this.#logger.info({ query: "listForAllNamesapce", finalResult });
+        this.#logger.info({ query: "listForAllNamesapce", finalResult });
 
-          return finalResult;
-        } catch (err) {
-          this.#logger.error(err);
-          throw err;
-        }
-      },
+        return finalResult;
+      }),
 
-      getNamespacedObject: async ({
+      getNamespacedObject: ({
         name,
         namespace,
       }: {
         name: string;
         namespace: string;
       }) => {
-        const res = await customObjectsApi.getNamespacedCustomObject({
-          group: this.#group,
-          version: this.#version,
-          namespace: namespace,
-          plural: this.#kind.toLowerCase(),
-          name: name,
+        return Effect.gen(this, function* () {
+          const res = yield* Effect.tryPromise(() =>
+            customObjectsApi.getNamespacedCustomObject({
+              group: this.#group,
+              version: this.#version,
+              namespace: namespace,
+              plural: this.#kind.toLowerCase(),
+              name: name,
+            }),
+          );
+
+          this.#logger.debug({ query: "getNamespacedObject", res });
+
+          const finalResult = yield* Effect.try(() =>
+            this.#getCrSchema().parse(res),
+          );
+
+          return finalResult;
         });
-
-        this.#logger.debug({ query: "getNamespacedObject", res });
-
-        return this.#getCrSchema().parse(res);
       },
     };
   }

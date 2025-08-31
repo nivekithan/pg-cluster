@@ -6,6 +6,7 @@ import {
 } from "@kubernetes/client-node";
 import { pgCrd } from "./crd.ts";
 import { logger } from "./logger.ts";
+import { Effect } from "effect";
 
 const kc = new KubeConfig();
 kc.loadFromDefault();
@@ -14,7 +15,13 @@ const pgCrdApi = pgCrd.getApi(kc);
 const appsApi = kc.makeApiClient(AppsV1Api);
 
 const podsInformer = makeInformer(kc, pgCrd.apiPath(), async () => {
-  return pgCrdApi.listForAllNamesapce();
+  try {
+    const res = await Effect.runPromise(pgCrdApi.listForAllNamesapce);
+    return res;
+  } catch (err) {
+    logger.error({ err });
+    throw err;
+  }
 });
 
 async function reconcileCrd({
