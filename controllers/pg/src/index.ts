@@ -27,7 +27,7 @@ const main = Effect.fn("main")(function* () {
     }),
   );
 
-  const podsInformer = makeInformer(kc, pgCrd.apiPath(), async () => {
+  const postgresInformer = makeInformer(kc, pgCrd.apiPath(), async () => {
     try {
       const res = await Effect.runPromise(pgCrdApi.listForAllNamesapce);
       return res;
@@ -37,7 +37,7 @@ const main = Effect.fn("main")(function* () {
     }
   });
 
-  podsInformer.on("add", (event) => {
+  postgresInformer.on("add", (event) => {
     if (!event.metadata?.name || !event.metadata?.namespace) return;
 
     Effect.runFork(
@@ -51,7 +51,7 @@ const main = Effect.fn("main")(function* () {
     );
   });
 
-  podsInformer.on("update", (event) => {
+  postgresInformer.on("update", (event) => {
     if (!event.metadata?.name || !event.metadata?.namespace) return;
 
     Effect.runFork(
@@ -65,7 +65,7 @@ const main = Effect.fn("main")(function* () {
     );
   });
 
-  podsInformer.on("delete", (event) => {
+  postgresInformer.on("delete", (event) => {
     if (!event.metadata?.name || !event.metadata?.namespace) return;
 
     Effect.runFork(
@@ -79,7 +79,7 @@ const main = Effect.fn("main")(function* () {
     );
   });
 
-  podsInformer.on("change", (event) => {
+  postgresInformer.on("change", (event) => {
     if (!event.metadata?.name || !event.metadata?.namespace) return;
     Effect.runFork(
       Queue.offer(reconcileQueue, {
@@ -92,7 +92,7 @@ const main = Effect.fn("main")(function* () {
     );
   });
 
-  yield* Effect.tryPromise(() => podsInformer.start());
+  yield* Effect.tryPromise(() => postgresInformer.start());
 });
 
 await Effect.runPromise(main());

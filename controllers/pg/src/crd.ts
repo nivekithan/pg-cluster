@@ -76,6 +76,16 @@ export const reconcileCrd = Effect.fn("reconcileCrd")(function* ({
         metadata: {
           name: "busybox",
           namespace: namespace,
+          ownerReferences: [
+            {
+              apiVersion: postgres.apiVersion,
+              kind: postgres.kind,
+              name: postgres.metadata.name,
+              uid: postgres.metadata.uid,
+              blockOwnerDeletion: false,
+              controller: true,
+            },
+          ],
         },
         spec: {
           replicas: 1,
