@@ -3,11 +3,13 @@ import {
   CustomObjectsApi,
   KubeConfig,
   makeInformer,
+  V1Deployment,
 } from "@kubernetes/client-node";
 import { pgCrd, reconcileCrd, type ReconcileCrdArgs } from "./crd.ts";
 import { logger } from "./logger.ts";
 import { Effect, Queue } from "effect";
 import type { Crd } from "./lib/crd.ts";
+import { listAllDeployments } from "./lib/deloyment.ts";
 
 const main = Effect.fn("main")(function* () {
   const kc = new KubeConfig();
@@ -93,6 +95,59 @@ const main = Effect.fn("main")(function* () {
   });
 
   yield* Effect.tryPromise(() => postgresInformer.start());
+
+  const deploymentsInformer = makeInformer(
+    kc,
+    "/apis/apps/v1/deployments",
+    async () => {
+      try {
+        const res = await Effect.runPromise(listAllDeployments({ kc }));
+        return res;
+      } catch (err) {
+        logger.error({ err });
+        throw err;
+      }
+    },
+  );
+
+  function identifyControllerManagedDeployment(event: V1Deployment) {
+    logger.debug({ event, eventCause: "identifyControllerManagedDeployment" });
+
+    const ownerRef = event.metadata?.ownerReferences?.find(
+      (ref) =>
+        ref.apiVersion === `${pgCrd.group}/${pgCrd.version}` &&
+        ref.kind === pgCrd.kind &&
+        ref.controller,
+    );
+
+    if (!ownerRef) {
+      return;
+    }
+
+    const name = ownerRef.name;
+    const namespace = event.metadata?.namespace;
+
+    if (!name || !namespace) {
+      return;
+    }
+
+    Effect.runFork(
+      Queue.offer(reconcileQueue, {
+        kc,
+        logger,
+        name: name,
+        namespace: namespace,
+        pgCrdApi,
+      }),
+    );
+  }
+
+  deploymentsInformer.on("add", identifyControllerManagedDeployment);
+  deploymentsInformer.on("update", identifyControllerManagedDeployment);
+  deploymentsInformer.on("delete", identifyControllerManagedDeployment);
+  deploymentsInformer.on("change", identifyControllerManagedDeployment);
+
+  yield* Effect.tryPromise(() => deploymentsInformer.start());
 });
 
 await Effect.runPromise(main());

@@ -66,6 +66,20 @@ export const createNamespacedDeployment = Effect.fn(
   return createDeployment;
 });
 
+export const listAllDeployments = Effect.fn("listAllDeployments")(function* ({
+  kc,
+}: {
+  kc: KubeConfig;
+}) {
+  const appsApi = kc.makeApiClient(AppsV1Api);
+
+  const allDeploments = yield* Effect.tryPromise(async () =>
+    appsApi.listDeploymentForAllNamespaces(),
+  );
+
+  return allDeploments;
+});
+
 export class DeploymentNotFoundError extends Data.TaggedError(
   "DeploymentNotFound",
 )<{ name: string; namespace: string }> {}

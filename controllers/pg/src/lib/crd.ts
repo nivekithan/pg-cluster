@@ -8,10 +8,10 @@ import yaml from "yaml";
 import { z, type ZodObject } from "zod";
 
 export class Crd<T extends ZodObject> {
-  #group: string;
-  #kind: string;
-  #spec: T;
-  #version = "v1alpha1";
+  readonly group: string;
+  readonly kind: string;
+  readonly spec: T;
+  readonly version = "v1alpha1";
   #logger: Logger;
 
   constructor({
@@ -25,9 +25,9 @@ export class Crd<T extends ZodObject> {
     spec: T;
     logger: Logger;
   }) {
-    this.#group = group;
-    this.#kind = kind;
-    this.#spec = spec;
+    this.group = group;
+    this.kind = kind;
+    this.spec = spec;
     this.#logger = logger.child({ group, kind, class: "Crd" });
   }
 
@@ -38,9 +38,9 @@ export class Crd<T extends ZodObject> {
       listForAllNamesapce: Effect.gen(this, function* () {
         const res = yield* Effect.tryPromise(async () => {
           return customObjectsApi.listCustomObjectForAllNamespaces({
-            group: this.#group,
+            group: this.group,
             plural: this.#names().plural,
-            version: this.#version,
+            version: this.version,
           });
         });
 
@@ -67,10 +67,10 @@ export class Crd<T extends ZodObject> {
         return Effect.gen(this, function* () {
           const res = yield* Effect.tryPromise(() =>
             customObjectsApi.getNamespacedCustomObject({
-              group: this.#group,
-              version: this.#version,
+              group: this.group,
+              version: this.version,
               namespace: namespace,
-              plural: this.#kind.toLowerCase(),
+              plural: this.kind.toLowerCase(),
               name: name,
             }),
           );
@@ -92,24 +92,24 @@ export class Crd<T extends ZodObject> {
       apiVersion: "apiextensions.k8s.io/v1",
       kind: "CustomResourceDefinition",
       metadata: {
-        name: `${this.#group}.${this.#kind}`,
+        name: `${this.group}.${this.kind}`,
       },
       spec: {
-        group: this.#group,
+        group: this.group,
         names: {
-          kind: this.#kind,
-          plural: this.#kind.toLowerCase(),
-          singular: this.#kind.toLowerCase(),
-          listKind: `${this.#kind}List`,
+          kind: this.kind,
+          plural: this.kind.toLowerCase(),
+          singular: this.kind.toLowerCase(),
+          listKind: `${this.kind}List`,
         },
         scope: "Namespaced",
         versions: [
           {
-            name: this.#version,
+            name: this.version,
             served: true,
             storage: true,
             schema: {
-              openAPIV3Schema: geneateOpenapiSchema(this.#spec),
+              openAPIV3Schema: geneateOpenapiSchema(this.spec),
             },
           },
         ],
@@ -124,23 +124,23 @@ export class Crd<T extends ZodObject> {
   }
 
   apiPath() {
-    return `/apis/${this.#group}/${this.#version}/${this.#names().singular}`;
+    return `/apis/${this.group}/${this.version}/${this.#names().singular}`;
   }
 
   #names() {
     return {
-      kind: this.#kind,
-      plural: this.#kind.toLowerCase(),
-      singular: this.#kind.toLowerCase(),
-      listKind: `${this.#kind}List`,
+      kind: this.kind,
+      plural: this.kind.toLowerCase(),
+      singular: this.kind.toLowerCase(),
+      listKind: `${this.kind}List`,
     };
   }
 
   #getCrSchema() {
     return z
       .looseObject({
-        apiVersion: z.literal(`${this.#group}/${this.#version}`),
-        kind: z.literal(this.#kind),
+        apiVersion: z.literal(`${this.group}/${this.version}`),
+        kind: z.literal(this.kind),
         metadata: z.looseObject({
           annotations: z.record(z.string(), z.string()).optional(),
           name: z.string(),
@@ -149,7 +149,7 @@ export class Crd<T extends ZodObject> {
           uid: z.string(),
         }),
       })
-      .merge(this.#spec);
+      .merge(this.spec);
   }
 }
 
