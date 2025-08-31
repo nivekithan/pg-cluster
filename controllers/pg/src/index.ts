@@ -7,6 +7,10 @@ import {
 import { pgCrd } from "./crd.ts";
 import { logger } from "./logger.ts";
 import { Effect } from "effect";
+import {
+  createNamespacedDeployment,
+  readNamespacedDeployment,
+} from "./lib/deloyment.ts";
 
 const kc = new KubeConfig();
 kc.loadFromDefault();
@@ -24,7 +28,7 @@ const podsInformer = makeInformer(kc, pgCrd.apiPath(), async () => {
   }
 });
 
-async function reconcileCrd({
+const reconcileCrd = Effect.fn("reconcileCrd")(function* ({
   name,
   namespace,
 }: {
@@ -35,7 +39,7 @@ async function reconcileCrd({
 
   childLogger.info({ action: "RECONCILE_LOOP_STARTED" });
 
-  const postgres = await pgCrdApi.getNamespacedObject({
+  const postgres = yield* pgCrdApi.getNamespacedObject({
     name,
     namespace,
   });
@@ -47,28 +51,22 @@ async function reconcileCrd({
     args: { name: "busybox", namespace },
   });
 
-  const checkExistingDeployment = await appsApi
-    .readNamespacedDeployment({
-      name: "busybox",
-      namespace,
-    })
-    .catch((err) => {
-      if (err instanceof Error && err.message.includes("404")) {
-        return null;
-      }
-
-      throw err;
-    });
+  const existingDeployment = yield* readNamespacedDeployment({
+    kc,
+    name,
+    namespace,
+  }).pipe(Effect.catchTag("DeploymentNotFound", () => Effect.succeed(null)));
 
   childLogger.info({
-    action: "FOUND_EXISTING_DEPLOYMENT",
+    action: "CHECKING_EXISTING_DEPLOYMENT_RESULT",
     args: { name: "busybox", namespace },
-    deployment: checkExistingDeployment,
+    deployment: existingDeployment,
   });
 
-  if (!checkExistingDeployment) {
+  if (!existingDeployment) {
     childLogger.info({ action: "CREATING_BUSYBOX_DEPLOYMENT" });
-    const busyboxDeployment = await appsApi.createNamespacedDeployment({
+    const busyboxDeployment = yield* createNamespacedDeployment({
+      kc,
       namespace: namespace,
       body: {
         apiVersion: "apps/v1",
@@ -103,6 +101,7 @@ async function reconcileCrd({
         },
       },
     });
+
     childLogger.info({
       action: "CREATED_BUSYBOX_DEPLOYMENT",
       deployment: busyboxDeployment,
@@ -110,42 +109,50 @@ async function reconcileCrd({
   }
 
   childLogger.info({ action: "RECONCILE_LOOP_COMPLETED" });
-}
+});
 
 podsInformer.on("add", (event) => {
   if (!event.metadata?.name || !event.metadata?.namespace) return;
 
-  reconcileCrd({
-    name: event.metadata?.name,
-    namespace: event.metadata?.namespace,
-  });
+  Effect.runPromise(
+    reconcileCrd({
+      name: event.metadata?.name,
+      namespace: event.metadata?.namespace,
+    }),
+  );
 });
 
 podsInformer.on("update", (event) => {
   if (!event.metadata?.name || !event.metadata?.namespace) return;
 
-  reconcileCrd({
-    name: event.metadata?.name,
-    namespace: event.metadata?.namespace,
-  });
+  Effect.runPromise(
+    reconcileCrd({
+      name: event.metadata?.name,
+      namespace: event.metadata?.namespace,
+    }),
+  );
 });
 
 podsInformer.on("delete", (event) => {
   if (!event.metadata?.name || !event.metadata?.namespace) return;
 
-  reconcileCrd({
-    name: event.metadata?.name,
-    namespace: event.metadata?.namespace,
-  });
+  Effect.runPromise(
+    reconcileCrd({
+      name: event.metadata?.name,
+      namespace: event.metadata?.namespace,
+    }),
+  );
 });
 
 podsInformer.on("change", (event) => {
   if (!event.metadata?.name || !event.metadata?.namespace) return;
 
-  reconcileCrd({
-    name: event.metadata?.name,
-    namespace: event.metadata?.namespace,
-  });
+  Effect.runPromise(
+    reconcileCrd({
+      name: event.metadata?.name,
+      namespace: event.metadata?.namespace,
+    }),
+  );
 });
 
 await podsInformer.start();
