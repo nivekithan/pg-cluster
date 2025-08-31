@@ -1,7 +1,7 @@
 import z, { ZodObject } from "zod";
 import { Crd } from "./lib/crd.ts";
 import { logger } from "./logger.ts";
-import { Effect } from "effect";
+import { Effect, Queue } from "effect";
 import {
   createNamespacedDeployment,
   readNamespacedDeployment,
@@ -21,6 +21,8 @@ export const pgCrd = new Crd({
   spec: pgCrdSpec,
   logger: logger,
 });
+
+export type ReconcileCrdArgs = Parameters<typeof reconcileCrd>[0];
 
 export const reconcileCrd = Effect.fn("reconcileCrd")(function* ({
   name,
@@ -53,7 +55,7 @@ export const reconcileCrd = Effect.fn("reconcileCrd")(function* ({
 
   const existingDeployment = yield* readNamespacedDeployment({
     kc,
-    name,
+    name: "busybox",
     namespace,
   }).pipe(Effect.catchTag("DeploymentNotFound", () => Effect.succeed(null)));
 
