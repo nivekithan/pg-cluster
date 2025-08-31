@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node ./src/index.ts | pino-pretty",
     "generate": "node ./scripts/generateCrd.ts",
-    "install": "kubectl apply -f ./generated_manifests"
+    "install": "kubectl apply -f ./generated_manifests",
+    "typecheck": "tsc --noEmit"
   },
   "type": "module",
   "keywords": [],
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
-    "pino-pretty": "^13.1.1"
+    "pino-pretty": "^13.1.1",
+    "typescript": "^5.9.2"
   }
 }
