@@ -6,3 +6,4 @@ mariadb-operator
 postgres-operator
 percona-postgresql-operator
 .env*
+/tmp/postgres
