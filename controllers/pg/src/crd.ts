@@ -114,7 +114,7 @@ const ensurePostgresDeployment = Effect.fn("ensurePostgresDeployment")(
 
     childLogger.info({ action: "CREATING_BUSYBOX_DEPLOYMENT" });
 
-    const busyboxDeployment = yield* createNamespacedDeployment({
+    const postgresDeployment = yield* createNamespacedDeployment({
       kc,
       namespace: namespace,
       body: {
@@ -186,8 +186,8 @@ const ensurePostgresDeployment = Effect.fn("ensurePostgresDeployment")(
     });
 
     childLogger.info({
-      action: "CREATED_BUSYBOX_DEPLOYMENT",
-      deployment: busyboxDeployment,
+      action: "CREATED_POSTGRES_DEPLOYMENT",
+      deployment: postgresDeployment,
     });
   },
 );
