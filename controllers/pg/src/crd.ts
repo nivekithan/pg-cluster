@@ -83,13 +83,6 @@ const ensurePostgresDeployment = Effect.fn("ensurePostgresDeployment")(
 
     childLogger.info({ action: "RECONCILE_LOOP_STARTED" });
 
-    const socketPvc = yield* ensureSocketPvc({
-      kc,
-      logger: childLogger,
-      pgCrdApi,
-      postgresCrd: { name, namespace },
-    });
-
     const postgres = yield* pgCrdApi.getNamespacedObject({
       name,
       namespace,
@@ -161,8 +154,8 @@ const ensurePostgresDeployment = Effect.fn("ensurePostgresDeployment")(
               volumes: [
                 {
                   name: "postgres-socket",
-                  persistentVolumeClaim: {
-                    claimName: getSocketPvcName(name),
+                  emptyDir: {
+                    sizeLimit: "16Mi",
                   },
                 },
               ],
@@ -198,59 +191,3 @@ const ensurePostgresDeployment = Effect.fn("ensurePostgresDeployment")(
     });
   },
 );
-
-const getSocketPvcName = (name: string) => `${name}-socket-pvc`;
-
-const ensureSocketPvc = Effect.fn("ensureSocketPvc")(function* ({
-  kc,
-  logger,
-  pgCrdApi,
-  postgresCrd: { name, namespace },
-}: {
-  postgresCrd: { name: string; namespace: string };
-  kc: KubeConfig;
-  logger: Logger;
-  pgCrdApi: PgCrdApi;
-}) {
-  const pvcName = getSocketPvcName(name);
-
-  const childLogger = logger.child({ pvcName });
-
-  childLogger.info({ action: "CHECKING_FOR_EXISTING_PVC" });
-
-  const pvc = yield* readNamespacedPvc({ kc, name: pvcName, namespace }).pipe(
-    Effect.catchTag("pvcNotFound", () => Effect.succeed(null)),
-  );
-
-  childLogger.info({ action: "CHECK_EXISTING_PVC_RESULT", pvc });
-
-  if (pvc) {
-    childLogger.info({ action: "PVC_ALREADY_EXISTS", pvc });
-    return pvc;
-  }
-
-  childLogger.info({ action: "CREATING_NEW_PVC" });
-
-  const socketPvc = yield* createNamespacedPvc({
-    kc,
-    namespace,
-    body: {
-      metadata: {
-        name: pvcName,
-        namespace,
-      },
-      spec: {
-        accessModes: ["ReadWriteOnce"],
-        resources: {
-          requests: {
-            storage: "16Mi",
-          },
-        },
-      },
-    },
-  });
-
-  childLogger.info({ action: "CREATED_NEW_PVC", pvc: socketPvc });
-
-  return socketPvc;
-});
